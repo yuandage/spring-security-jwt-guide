@@ -19,7 +19,7 @@ public class UserController {
     UserService userService;
 
     @GetMapping("/users")
-    @PreAuthorize("hasAnyAuthority('DEV','ADMIN','TEST','USER')")
+    @PreAuthorize("hasAnyAuthority('DEV','ADMIN','USER')")
     public Result getAllUser() {
         return new Result(true, StatusCode.SUCCESS, "查询成功",  userService.getAllUser());
     }

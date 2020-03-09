@@ -1,6 +1,8 @@
 package yh.security.controller;
 
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import yh.common.Result;
 import yh.common.StatusCode;
 import yh.security.service.UserDetailsServiceImpl;
@@ -21,6 +23,9 @@ public class AuthController {
 	UserService userService;
 	@Autowired
 	UserDetailsServiceImpl userDetailsService;
+	@Autowired
+	AuthenticationManager authenticationManager;
+
 
 	public AuthController(UserService userService) {
 		this.userService = userService;
@@ -34,8 +39,11 @@ public class AuthController {
 
 	@PostMapping("/login")
 	public Result login(@RequestBody User user) {
-		UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
-		String token = JwtTokenUtils.createToken(userDetails.getUsername(), userDetails.getAuthorities().toString());
+		// 执行登录认证过程
+		UsernamePasswordAuthenticationToken authRequest = new UsernamePasswordAuthenticationToken(
+				user.getUsername(), user.getPassword());
+		Authentication authentication = authenticationManager.authenticate(authRequest);
+		String token = JwtTokenUtils.createToken(authentication.getName(), authentication.getAuthorities().toString());
 		return new Result(true, StatusCode.SUCCESS, "登录成功", token);
 	}
 

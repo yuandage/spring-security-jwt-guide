@@ -23,10 +23,12 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 	public UserDetails loadUserByUsername(String name) throws UsernameNotFoundException {
 		User user = userService.findUserByUserName(name);
 		if (user == null) {
-			throw new UsernameNotFoundException("用户名不存在");
+			throw new RuntimeException("用户名不存在");
 		}
 		List<SimpleGrantedAuthority> authorities = new ArrayList<>();
 		String roles = user.getRoles();
+		if(roles==null||"".equals(roles))
+			return new SecurityUserDetails(user.getUsername(), user.getPassword(), null);
 		String[] allRoles = roles.split(",");
 		for(String allRole:allRoles){
 			authorities.add(new SimpleGrantedAuthority(allRole));
