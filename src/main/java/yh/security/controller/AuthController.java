@@ -26,7 +26,6 @@ public class AuthController {
 	@Autowired
 	AuthenticationManager authenticationManager;
 
-
 	public AuthController(UserService userService) {
 		this.userService = userService;
 	}
@@ -43,7 +42,8 @@ public class AuthController {
 		UsernamePasswordAuthenticationToken authRequest = new UsernamePasswordAuthenticationToken(
 				user.getUsername(), user.getPassword());
 		Authentication authentication = authenticationManager.authenticate(authRequest);
-		String token = JwtTokenUtils.createToken(authentication.getName(), authentication.getAuthorities().toString());
+		System.out.println(authentication.getAuthorities().toString());
+		String token = JwtTokenUtils.createToken(authentication.getName(), authentication.getAuthorities());
 		return new Result(true, StatusCode.SUCCESS, "登录成功", token);
 	}
 

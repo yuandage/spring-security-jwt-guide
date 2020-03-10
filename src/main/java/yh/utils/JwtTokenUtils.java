@@ -3,15 +3,17 @@ package yh.utils;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.*;
 
 public class JwtTokenUtils {
 
-	private static String KEY="yhyh";//盐
-	private static long EXPIRES=360000000;//过期时间
+	private static String KEY = "yhyh";//盐
+	private static long EXPIRES = 360000000;//过期时间
 	private static String ROLE = "role";  //角色键
+	private static String AUTHORITIES = "authorities";  //角色键
 
 	//生成token
 	public static String createToken(String username, String roles) {
@@ -22,6 +24,19 @@ public class JwtTokenUtils {
 				.setIssuedAt(now)
 				.setSubject(username)
 				.claim(ROLE, roles)
+				.setExpiration(new Date(nowMillis + EXPIRES))
+				.compact();
+	}
+
+	//生成token
+	public static String createToken(String username, Object authorities) {
+		long nowMillis = System.currentTimeMillis();
+		Date now = new Date(nowMillis);
+		return Jwts.builder()
+				.signWith(SignatureAlgorithm.HS256, KEY)
+				.setIssuedAt(now)
+				.setSubject(username)
+				.claim(AUTHORITIES, authorities)
 				.setExpiration(new Date(nowMillis + EXPIRES))
 				.compact();
 	}
@@ -58,10 +73,30 @@ public class JwtTokenUtils {
 		return username;
 	}
 
+	//从令牌中角色和权限
+	public static List<SimpleGrantedAuthority> getAuthoritiesFromToken(String token) {
+		if (token == null)
+			return null;
+		if (isTokenExpired(token)) {
+			return null;
+		}
+		Claims claims = getClaimsFromToken(token);
+		if (claims == null) {
+			return null;
+		}
+		Object authors = claims.get(AUTHORITIES);
+		List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+		if (authors instanceof List) {
+			for (Object object : (List) authors) {
+				authorities.add(new SimpleGrantedAuthority((String) ((Map) object).get("authority")));
+			}
+		}
+		return authorities;
+	}
+
 	//获取用户所有角色
 	public static String getUserRolesByToken(String token) {
-		String role = (String) getClaimsFromToken(token).get(ROLE);
-		return role;
+		return (String) getClaimsFromToken(token).get(ROLE);
 	}
 
 	//验证令牌

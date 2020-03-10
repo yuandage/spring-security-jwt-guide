@@ -1,13 +1,15 @@
 package yh.security.filter;
 
-import io.jsonwebtoken.ExpiredJwtException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import yh.security.service.UserDetailsServiceImpl;
+import yh.common.Result;
+import yh.common.StatusCode;
+import yh.system.service.UserService;
 import yh.utils.JwtTokenUtils;
 
 import javax.servlet.FilterChain;
@@ -15,30 +17,67 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.List;
+import java.util.Objects;
 
 @Component
 public class AuthenticationTokenFilter extends OncePerRequestFilter {
 
 	@Autowired
-	UserDetailsServiceImpl userDetailsService;
+	UserService userService;
+	@Autowired
+	private ObjectMapper objectMapper;
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
+		//登录请求直接放行
+		if ("/auth/login".equals(request.getRequestURI())) {
+			chain.doFilter(request, response);
+			return;
+		}
 		String requestHeader = request.getHeader("Authorization");
-		String username = null;
-		String authToken = null;
-		if (requestHeader != null && requestHeader.startsWith("Bearer ")) {
-			authToken = requestHeader.substring(7);
-			username = JwtTokenUtils.getUsernameFromToken(authToken);
+		if (requestHeader == null) {
+			writeResponse(response, "请登录");
+			return;
+		}
+		if (!requestHeader.startsWith("Bearer ")) {
+			writeResponse(response, "令牌格式不正确");
+			return;
 		}
 
-		if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-			UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-			if (JwtTokenUtils.validateToken(userDetails.getUsername(), authToken)) {
-				UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+		String authToken = requestHeader.substring(7);
+		String username = JwtTokenUtils.getUsernameFromToken(authToken);
+		if (username == null) {
+			writeResponse(response, "令牌不正确");
+			return;
+		}
+		if (SecurityContextHolder.getContext().getAuthentication() == null) {
+			//可以改成从token中获取用户角色和权限信息,不用去数据库中查询,但角色和权限信息不能及时更新
+			//在每次登录时重新查询,放入token中可以解决
+			//UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+			//token在http中有被盗用的风险,放在请求头中降低一点风险
+			if (JwtTokenUtils.isTokenExpired(authToken)) {
+				writeResponse(response, "令牌已过期");
+				return;
+			} else {
+				List<SimpleGrantedAuthority> authorities = JwtTokenUtils.getAuthoritiesFromToken(authToken);
+				System.out.println("用户角色:" + authorities);
+				UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(username, null, authorities);
 				SecurityContextHolder.getContext().setAuthentication(authentication);
 			}
 		}
 		chain.doFilter(request, response);
 	}
+
+	public void writeResponse(HttpServletResponse response, String message) throws IOException {
+		response.setContentType("application/json;charset=utf-8");
+		response.setStatus(HttpServletResponse.SC_OK);
+		PrintWriter out = response.getWriter();
+		Result result = new Result(false, StatusCode.ERROR, message);
+		out.write(objectMapper.writeValueAsString(result));
+		out.flush();
+		out.close();
+	}
+
 }
