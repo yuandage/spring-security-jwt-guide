@@ -19,7 +19,6 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
-import java.util.Objects;
 
 @Component
 public class AuthenticationTokenFilter extends OncePerRequestFilter {
@@ -31,14 +30,9 @@ public class AuthenticationTokenFilter extends OncePerRequestFilter {
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
-		//登录请求直接放行
-		if ("/auth/login".equals(request.getRequestURI())) {
-			chain.doFilter(request, response);
-			return;
-		}
 		String requestHeader = request.getHeader("Authorization");
 		if (requestHeader == null) {
-			writeResponse(response, "请登录");
+			chain.doFilter(request, response);
 			return;
 		}
 		if (!requestHeader.startsWith("Bearer ")) {
